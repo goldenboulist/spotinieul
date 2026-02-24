@@ -56,7 +56,7 @@ export default function HomeScreen() {
         <View style={styles.quickActions}>
           <TouchableOpacity
             style={[styles.quickActionCard, { backgroundColor: colors.icon + '15' }]}
-            onPress={() => router.push('/(tabs)/library')}
+            onPress={() => router.push('/library')}
           >
             <Ionicons name="musical-notes" size={32} color={themeColors.primary} />
             <Text style={[styles.quickActionText, { color: colors.text }]}>
@@ -69,7 +69,7 @@ export default function HomeScreen() {
 
           <TouchableOpacity
             style={[styles.quickActionCard, { backgroundColor: colors.icon + '15' }]}
-            onPress={() => router.push('/(tabs)/playlists')}
+            onPress={() => router.push('/playlists')}
           >
             <Ionicons name="list" size={32} color={themeColors.primary} />
             <Text style={[styles.quickActionText, { color: colors.text }]}>

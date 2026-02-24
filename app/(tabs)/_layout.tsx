@@ -36,17 +36,10 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
-          name="library"
+          name="task"
           options={{
-            title: 'Library',
-            tabBarIcon: ({ color }) => <Ionicons size={28} name="library" color={color} />,
-          }}
-        />
-        <Tabs.Screen
-          name="playlists"
-          options={{
-            title: 'Playlists',
-            tabBarIcon: ({ color }) => <Ionicons size={28} name="list" color={color} />,
+            title: 'Task',
+            tabBarIcon: ({ color }) => <Ionicons size={28} name="checkmark-circle" color={color} />,
           }}
         />
         <Tabs.Screen
