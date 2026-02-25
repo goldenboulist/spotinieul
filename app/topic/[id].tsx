@@ -5,7 +5,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  Alert,
   FlatList,
   Modal,
   ScrollView,
@@ -13,7 +12,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 
 export default function TopicDetailScreen() {
@@ -26,7 +25,11 @@ export default function TopicDetailScreen() {
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const [editingCard, setEditingCard] = useState<Flashcard | null>(null);
+  const [cardToDelete, setCardToDelete] = useState<Flashcard | null>(null);
   const [cardFront, setCardFront] = useState('');
   const [cardBack, setCardBack] = useState('');
   const [flippedCards, setFlippedCards] = useState<Set<string>>(new Set());
@@ -48,7 +51,8 @@ export default function TopicDetailScreen() {
 
   const handleCreateFlashcard = async () => {
     if (!cardFront.trim() || !cardBack.trim()) {
-      Alert.alert('Error', 'Please fill in both sides of the flashcard');
+      setErrorMessage('Please fill in both sides of the flashcard');
+      setShowErrorModal(true);
       return;
     }
 
@@ -60,7 +64,8 @@ export default function TopicDetailScreen() {
 
   const handleEditFlashcard = async () => {
     if (!editingCard || !cardFront.trim() || !cardBack.trim()) {
-      Alert.alert('Error', 'Please fill in both sides of the flashcard');
+      setErrorMessage('Please fill in both sides of the flashcard');
+      setShowErrorModal(true);
       return;
     }
 
@@ -72,18 +77,8 @@ export default function TopicDetailScreen() {
   };
 
   const handleDeleteFlashcard = (card: Flashcard) => {
-    Alert.alert(
-      'Delete Flashcard',
-      'Are you sure you want to delete this flashcard?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => deleteFlashcard(topic.id, card.id),
-        },
-      ]
-    );
+    setCardToDelete(card);
+    setShowDeleteModal(true);
   };
 
   const openEditModal = (card: Flashcard) => {
@@ -138,9 +133,9 @@ export default function TopicDetailScreen() {
 
           <TouchableOpacity
             onPress={() => handleDeleteFlashcard(item)}
-            style={[styles.actionButton, { backgroundColor: '#E74C3C' }]}
+            style={[styles.actionButton]}
           >
-            <Ionicons name="trash" size={18} color="#fff" />
+            <Ionicons name="remove-circle" size={28} color="#ff0004ff" />
           </TouchableOpacity>
         </View>
       </View>
@@ -334,6 +329,80 @@ export default function TopicDetailScreen() {
           </ScrollView>
         </View>
       </Modal>
+
+      {/* Error Modal */}
+      <Modal
+        visible={showErrorModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowErrorModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.confirmModalContent, { backgroundColor: colors.background }]}>
+            <View style={styles.confirmModalHeader}>
+              <Ionicons name="warning" size={48} color="#ba181b" />
+              <Text style={[styles.confirmModalTitle, { color: colors.text }]}>Error</Text>
+              <Text style={[styles.confirmModalMessage, { color: colors.icon }]}>
+                {errorMessage}
+              </Text>
+            </View>
+            <View style={styles.confirmModalButtons}>
+              <TouchableOpacity
+                style={[styles.confirmButton, styles.okConfirmButton, { backgroundColor: themeColors.primary }]}
+                onPress={() => {
+                  setShowErrorModal(false);
+                  setErrorMessage('');
+                }}
+              >
+                <Text style={styles.buttonText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={showDeleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDeleteModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.confirmModalContent, { backgroundColor: colors.background }]}>
+            <View style={styles.confirmModalHeader}>
+              <Ionicons name="warning" size={48} color="#ba181b" />
+              <Text style={[styles.confirmModalTitle, { color: colors.text }]}>Delete Flashcard</Text>
+              <Text style={[styles.confirmModalMessage, { color: colors.icon }]}>
+                Are you sure you want to delete this flashcard?
+              </Text>
+            </View>
+            <View style={styles.confirmModalButtons}>
+              <TouchableOpacity
+                style={[styles.confirmButton, styles.cancelConfirmButton]}
+                onPress={() => {
+                  setShowDeleteModal(false);
+                  setCardToDelete(null);
+                }}
+              >
+                <Text style={styles.buttonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmButton, styles.deleteConfirmButton]}
+                onPress={() => {
+                  if (cardToDelete) {
+                    deleteFlashcard(topic.id, cardToDelete.id);
+                  }
+                  setShowDeleteModal(false);
+                  setCardToDelete(null);
+                }}
+              >
+                <Text style={styles.buttonText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -521,5 +590,47 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  confirmModalContent: {
+    margin: 20,
+    borderRadius: 12,
+    padding: 24,
+    alignItems: 'center',
+  },
+  confirmModalHeader: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  confirmModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  confirmModalMessage: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  confirmModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 24,
+  },
+  confirmButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelConfirmButton: {
+    backgroundColor: '#666',
+  },
+  deleteConfirmButton: {
+    backgroundColor: '#ba181b',
+  },
+  okConfirmButton: {
+    // backgroundColor will be set dynamically
   },
 });

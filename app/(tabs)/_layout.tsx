@@ -6,7 +6,7 @@ import { HapticTab } from '@/components/haptic-tab';
 import { MiniPlayer } from '@/components/mini-player';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAppColors, useThemeColor } from '@/hooks/use-theme-color';
-import { Fontisto, Ionicons } from '@expo/vector-icons';
+import { Fontisto, Ionicons, Octicons } from '@expo/vector-icons';
 
 export default function TabLayout() {
   const colors = useAppColors();
@@ -39,7 +39,7 @@ export default function TabLayout() {
           name="task"
           options={{
             title: 'Task',
-            tabBarIcon: ({ color }) => <Ionicons size={28} name="checkmark-circle" color={color} />,
+            tabBarIcon: ({ color }) => <Octicons size={28} name="tasklist" color={color} />,
           }}
         />
         <Tabs.Screen

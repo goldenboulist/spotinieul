@@ -5,14 +5,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    Alert,
-    FlatList,
-    Modal,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  FlatList,
+  Modal,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 export default function FlashcardsScreen() {
@@ -23,11 +22,20 @@ export default function FlashcardsScreen() {
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newTopicName, setNewTopicName] = useState('');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [topicToDelete, setTopicToDelete] = useState<Topic | null>(null);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const [newTopicDesc, setNewTopicDesc] = useState('');
+
+  const showError = (message: string) => {
+    setErrorMessage(message);
+    setShowErrorModal(true);
+  };
 
   const handleCreateTopic = async () => {
     if (!newTopicName.trim()) {
-      Alert.alert('Error', 'Please enter a topic name');
+      showError('Please enter a topic name');
       return;
     }
 
@@ -38,23 +46,26 @@ export default function FlashcardsScreen() {
   };
 
   const handleDeleteTopic = (topic: Topic) => {
-    Alert.alert(
-      'Delete Topic',
-      `Are you sure you want to delete "${topic.name}"? This will delete all flashcards in this topic.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => deleteTopic(topic.id),
-        },
-      ]
-    );
+    setTopicToDelete(topic);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteTopic = () => {
+    if (topicToDelete) {
+      deleteTopic(topicToDelete.id);
+      setTopicToDelete(null);
+      setShowDeleteModal(false);
+    }
+  };
+
+  const cancelDeleteTopic = () => {
+    setTopicToDelete(null);
+    setShowDeleteModal(false);
   };
 
   const renderTopicItem = ({ item }: { item: Topic }) => {
     return (
-      <View style={[styles.topicItem, { backgroundColor: colors.background }]}>
+      <View style={[styles.topicItem, { backgroundColor: colors.background,borderColor: colors.icon + '50' }]}>
         <TouchableOpacity
           style={styles.topicTouchable}
           onPress={() => router.push(`/topic/${item.id}` as any)}
@@ -82,7 +93,7 @@ export default function FlashcardsScreen() {
           onPress={(e) => {
             e.stopPropagation();
             if (item.flashcards.length === 0) {
-              Alert.alert('No Cards', 'Add some flashcards to this topic first');
+              showError('Add some flashcards to this topic first');
               return;
             }
             router.push(`/study/${item.id}` as any);
@@ -99,7 +110,7 @@ export default function FlashcardsScreen() {
           }}
           style={styles.deleteButton}
         >
-          <Ionicons name="trash" size={22} color="#E74C3C" />
+          <Ionicons name="remove-circle" size={28} color="#ff0004ff" />
         </TouchableOpacity>
       </View>
     );
@@ -191,6 +202,73 @@ export default function FlashcardsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Error Modal */}
+      <Modal
+        visible={showErrorModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowErrorModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.errorModalContent, { backgroundColor: colors.background }]}>
+            <View style={styles.errorModalIcon}>
+              <Ionicons name="alert-circle" size={48} color="#ba181b" />
+            </View>
+            <Text style={[styles.errorModalTitle, { color: colors.text }]}>
+              Error
+            </Text>
+            <Text style={[styles.errorModalMessage, { color: colors.icon }]}>
+              {errorMessage}
+            </Text>
+            
+            <TouchableOpacity
+              style={[styles.errorModalButton, { backgroundColor: themeColors.primary }]}
+              onPress={() => setShowErrorModal(false)}
+            >
+              <Text style={styles.errorModalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={showDeleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={cancelDeleteTopic}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.deleteModalContent, { backgroundColor: colors.background }]}>
+            <View style={styles.deleteModalIcon}>
+              <Ionicons name="remove-circle" size={48} color="#ff0004ff" />
+            </View>
+            <Text style={[styles.deleteModalTitle, { color: colors.text }]}>
+              Delete Topic
+            </Text>
+            <Text style={[styles.deleteModalMessage, { color: colors.icon }]}>
+              Are you sure you want to delete "{topicToDelete?.name}"? This will delete all flashcards in this topic.
+            </Text>
+            
+            <View style={styles.deleteModalButtons}>
+              <TouchableOpacity
+                style={[styles.deleteModalButton, styles.cancelDeleteButton]}
+                onPress={cancelDeleteTopic}
+              >
+                <Text style={styles.cancelDeleteButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.deleteModalButton, styles.confirmDeleteButton]}
+                onPress={confirmDeleteTopic}
+              >
+                <Text style={styles.confirmDeleteButtonText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -233,7 +311,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
   },
   topicTouchable: {
     flex: 1,
@@ -332,6 +409,86 @@ const styles = StyleSheet.create({
     // backgroundColor will be set dynamically
   },
   buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  errorModalContent: {
+    width: '85%',
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+  },
+  errorModalIcon: {
+    marginBottom: 16,
+  },
+  errorModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  errorModalMessage: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  errorModalButton: {
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    minWidth: 120,
+  },
+  errorModalButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  deleteModalContent: {
+    width: '85%',
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+  },
+  deleteModalIcon: {
+    marginBottom: 16,
+  },
+  deleteModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  deleteModalMessage: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  deleteModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  deleteModalButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelDeleteButton: {
+    backgroundColor: '#666',
+  },
+  confirmDeleteButton: {
+    backgroundColor: '#ba181b',
+  },
+  cancelDeleteButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  confirmDeleteButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',

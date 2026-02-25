@@ -1,12 +1,12 @@
 import { useAppColors, useThemeColors } from '@/hooks/use-theme-color';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import React, { useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   FlatList,
   Modal,
-  Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -32,6 +32,49 @@ export default function TaskScreen() {
   const [taskTitle, setTaskTitle] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Load tasks from storage on component mount
+  useEffect(() => {
+    loadTasks();
+  }, []);
+
+  // Save tasks to storage whenever they change (but not on initial load)
+  useEffect(() => {
+    if (isLoaded) {
+      saveTasks();
+    }
+  }, [tasks, isLoaded]);
+
+  const loadTasks = async () => {
+    try {
+      const storedTasks = await AsyncStorage.getItem('tasks');
+      if (storedTasks) {
+        const parsedTasks = JSON.parse(storedTasks);
+        // Convert date strings back to Date objects
+        const tasksWithDates = parsedTasks.map((task: any) => ({
+          ...task,
+          date: task.date ? new Date(task.date) : undefined,
+          createdAt: new Date(task.createdAt)
+        }));
+        setTasks(tasksWithDates);
+      }
+    } catch (error) {
+      console.error('Error loading tasks:', error);
+    } finally {
+      setIsLoaded(true);
+    }
+  };
+
+  const saveTasks = async () => {
+    try {
+      await AsyncStorage.setItem('tasks', JSON.stringify(tasks));
+    } catch (error) {
+      console.error('Error saving tasks:', error);
+    }
+  };
 
   const handleAddTask = () => {
     setEditingTask(null);
@@ -80,18 +123,21 @@ export default function TaskScreen() {
   };
 
   const handleDeleteTask = (taskId: string) => {
-    Alert.alert(
-      'Delete Task',
-      'Are you sure you want to delete this task?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => setTasks(prevTasks => prevTasks.filter(task => task.id !== taskId)),
-        },
-      ]
-    );
+    setTaskToDelete(taskId);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteTask = () => {
+    if (taskToDelete) {
+      setTasks(prevTasks => prevTasks.filter(task => task.id !== taskToDelete));
+      setTaskToDelete(null);
+      setShowDeleteModal(false);
+    }
+  };
+
+  const cancelDeleteTask = () => {
+    setTaskToDelete(null);
+    setShowDeleteModal(false);
   };
 
   const handleToggleComplete = (taskId: string) => {
@@ -120,8 +166,8 @@ export default function TaskScreen() {
       styles.taskItem,
       { 
         backgroundColor: colors.background,
-        borderColor: item.completed ? colors.icon + '30' : 
-                  isTaskOverdue(item) ? '#E74C3C' : colors.icon + '40'
+        borderColor: item.completed ? colors.icon + '50' : 
+                  isTaskOverdue(item) ? colors.icon : colors.icon + '40'
       }
     ]}>
       <TouchableOpacity
@@ -152,7 +198,7 @@ export default function TaskScreen() {
           <Text style={[
             styles.taskDate,
             { 
-              color: isTaskOverdue(item) ? '#E74C3C' : colors.icon,
+              color: colors.icon,
               fontWeight: isTaskOverdue(item) ? '600' : 'normal'
             }
           ]}>
@@ -165,7 +211,7 @@ export default function TaskScreen() {
         style={styles.deleteButton}
         onPress={() => handleDeleteTask(item.id)}
       >
-        <Ionicons name="trash" size={20} color="#E74C3C" />
+        <Ionicons name="remove-circle" size={28} color="#ff0004ff" />
       </TouchableOpacity>
     </View>
   );
@@ -236,19 +282,105 @@ export default function TaskScreen() {
             </TouchableOpacity>
 
             {showDatePicker && (
-              <DateTimePicker
-                value={selectedDate}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                onChange={(event: any, selectedDate?: Date) => {
-                  setShowDatePicker(false);
-                  if (selectedDate) {
-                    setSelectedDate(selectedDate);
-                  }
-                }}
-                minimumDate={new Date()}
-                style={styles.dateTimePicker}
-              />
+              <View style={styles.datePickerContainer}>
+                <View style={styles.datePickerWheels}>
+                  <View style={styles.wheelContainer}>
+                    <Text style={[styles.wheelLabel, { color: colors.text }]}>Month</Text>
+                    <ScrollView
+                      style={styles.wheel}
+                      showsVerticalScrollIndicator={false}
+                      snapToInterval={40}
+                      onMomentumScrollEnd={(e) => {
+                        const index = Math.round(e.nativeEvent.contentOffset.y / 40);
+                        const newDate = new Date(selectedDate);
+                        newDate.setMonth(index);
+                        setSelectedDate(newDate);
+                      }}
+                    >
+                      {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((month, index) => (
+                        <Text
+                          key={month}
+                          style={[
+                            styles.wheelItem,
+                            { 
+                              color: selectedDate.getMonth() === index ? themeColors.primary : colors.icon,
+                              fontWeight: selectedDate.getMonth() === index ? '600' : 'normal'
+                            }
+                          ]}
+                        >
+                          {month}
+                        </Text>
+                      ))}
+                    </ScrollView>
+                  </View>
+
+                  <View style={styles.wheelContainer}>
+                    <Text style={[styles.wheelLabel, { color: colors.text }]}>Day</Text>
+                    <ScrollView
+                      style={styles.wheel}
+                      showsVerticalScrollIndicator={false}
+                      snapToInterval={40}
+                      onMomentumScrollEnd={(e) => {
+                        const index = Math.round(e.nativeEvent.contentOffset.y / 40);
+                        const newDate = new Date(selectedDate);
+                        newDate.setDate(index + 1);
+                        setSelectedDate(newDate);
+                      }}
+                    >
+                      {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                        <Text
+                          key={day}
+                          style={[
+                            styles.wheelItem,
+                            { 
+                              color: selectedDate.getDate() === day ? themeColors.primary : colors.icon,
+                              fontWeight: selectedDate.getDate() === day ? '600' : 'normal'
+                            }
+                          ]}
+                        >
+                          {day.toString().padStart(2, '0')}
+                        </Text>
+                      ))}
+                    </ScrollView>
+                  </View>
+
+                  <View style={styles.wheelContainer}>
+                    <Text style={[styles.wheelLabel, { color: colors.text }]}>Year</Text>
+                    <ScrollView
+                      style={styles.wheel}
+                      showsVerticalScrollIndicator={false}
+                      snapToInterval={40}
+                      onMomentumScrollEnd={(e) => {
+                        const index = Math.round(e.nativeEvent.contentOffset.y / 40);
+                        const newDate = new Date(selectedDate);
+                        newDate.setFullYear(2020 + index);
+                        setSelectedDate(newDate);
+                      }}
+                    >
+                      {Array.from({ length: 50 }, (_, i) => 2020 + i).map(year => (
+                        <Text
+                          key={year}
+                          style={[
+                            styles.wheelItem,
+                            { 
+                              color: selectedDate.getFullYear() === year ? themeColors.primary : colors.icon,
+                              fontWeight: selectedDate.getFullYear() === year ? '600' : 'normal'
+                            }
+                          ]}
+                        >
+                          {year}
+                        </Text>
+                      ))}
+                    </ScrollView>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={[styles.datePickerButton, { backgroundColor: themeColors.primary }]}
+                  onPress={() => setShowDatePicker(false)}
+                >
+                  <Text style={styles.datePickerButtonText}>Done</Text>
+                </TouchableOpacity>
+              </View>
             )}
 
             <View style={styles.modalButtons}>
@@ -271,6 +403,44 @@ export default function TaskScreen() {
                 <Text style={styles.buttonText}>
                   {editingTask ? 'Update' : 'Save'}
                 </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={showDeleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={cancelDeleteTask}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.deleteModalContent, { backgroundColor: colors.background }]}>
+            <View style={styles.deleteModalIcon}>
+              <Ionicons name="remove-circle" size={48} color="#ff0004ff" />
+            </View>
+            <Text style={[styles.deleteModalTitle, { color: colors.text }]}>
+              Delete Task
+            </Text>
+            <Text style={[styles.deleteModalMessage, { color: colors.icon }]}>
+              Are you sure you want to delete this task? This action cannot be undone.
+            </Text>
+            
+            <View style={styles.deleteModalButtons}>
+              <TouchableOpacity
+                style={[styles.deleteModalButton, styles.cancelDeleteButton]}
+                onPress={cancelDeleteTask}
+              >
+                <Text style={styles.cancelDeleteButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.deleteModalButton,{ backgroundColor: '#ba181b' }]}
+                onPress={confirmDeleteTask}
+              >
+                <Text style={[styles.confirmDeleteButtonText]}>Delete</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -390,8 +560,29 @@ const styles = StyleSheet.create({
   datePickerContainer: {
     marginBottom: 16,
   },
-  dateTimePicker: {
-    marginTop: 8,
+  datePickerWheels: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 20,
+  },
+  wheelContainer: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  wheelLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  wheel: {
+    height: 120,
+    width: '100%',
+  },
+  wheelItem: {
+    height: 40,
+    textAlign: 'center',
+    fontSize: 16,
+    lineHeight: 40,
   },
   datePickerButton: {
     padding: 12,
@@ -427,6 +618,51 @@ const styles = StyleSheet.create({
     // backgroundColor will be set dynamically
   },
   buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  deleteModalContent: {
+    width: '85%',
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+  },
+  deleteModalIcon: {
+    marginBottom: 16,
+  },
+  deleteModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  deleteModalMessage: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  deleteModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  deleteModalButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelDeleteButton: {
+    backgroundColor: '#666',
+  },
+  cancelDeleteButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  confirmDeleteButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',

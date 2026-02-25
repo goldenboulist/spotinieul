@@ -5,14 +5,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    Alert,
-    FlatList,
-    Image,
-    Modal,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  FlatList,
+  Image,
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 export default function PlaylistDetailScreen() {
@@ -32,6 +31,9 @@ export default function PlaylistDetailScreen() {
   const themeColors = useThemeColors();
 
   const [showAddSongModal, setShowAddSongModal] = useState(false);
+  const [showRemoveSongModal, setShowRemoveSongModal] = useState(false);
+  const [showEmptyPlaylistModal, setShowEmptyPlaylistModal] = useState(false);
+  const [songToRemove, setSongToRemove] = useState<string | null>(null);
 
   const playlist = getPlaylistById(id as string);
 
@@ -50,18 +52,8 @@ export default function PlaylistDetailScreen() {
   const availableSongs = songs.filter((song) => !playlist.songs.includes(song.id));
 
   const handleRemoveSong = (songId: string) => {
-    Alert.alert(
-      'Remove Song',
-      'Remove this song from the playlist?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: () => removeSongFromPlaylist(playlist.id, songId),
-        },
-      ]
-    );
+    setSongToRemove(songId);
+    setShowRemoveSongModal(true);
   };
 
   const handleAddSong = (songId: string) => {
@@ -71,7 +63,7 @@ export default function PlaylistDetailScreen() {
 
   const handlePlayPlaylist = () => {
     if (playlistSongs.length === 0) {
-      Alert.alert('Empty Playlist', 'Add some songs first');
+      setShowEmptyPlaylistModal(true);
       return;
     }
     playPlaylist(playlist);
@@ -130,7 +122,7 @@ export default function PlaylistDetailScreen() {
         }}
         style={styles.removeButton}
       >
-        <Ionicons name="remove-circle" size={28} color="#E74C3C" />
+        <Ionicons name="remove-circle" size={28} color="#ff0004ff" />
       </TouchableOpacity>
     </View>
   );
@@ -260,6 +252,77 @@ export default function PlaylistDetailScreen() {
                 contentContainerStyle={styles.modalList}
               />
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Remove Song Confirmation Modal */}
+      <Modal
+        visible={showRemoveSongModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowRemoveSongModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.confirmModalContent, { backgroundColor: colors.background }]}>
+            <View style={styles.confirmModalHeader}>
+              <Ionicons name="warning" size={48} color="#ba181b" />
+              <Text style={[styles.confirmModalTitle, { color: colors.text }]}>Remove Song</Text>
+              <Text style={[styles.confirmModalMessage, { color: colors.icon }]}>
+                Remove this song from the playlist?
+              </Text>
+            </View>
+            <View style={styles.confirmModalButtons}>
+              <TouchableOpacity
+                style={[styles.confirmButton, styles.cancelConfirmButton]}
+                onPress={() => {
+                  setShowRemoveSongModal(false);
+                  setSongToRemove(null);
+                }}
+              >
+                <Text style={styles.buttonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmButton, styles.removeConfirmButton]}
+                onPress={() => {
+                  if (songToRemove) {
+                    removeSongFromPlaylist(playlist.id, songToRemove);
+                  }
+                  setShowRemoveSongModal(false);
+                  setSongToRemove(null);
+                }}
+              >
+                <Text style={styles.buttonText}>Remove</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Empty Playlist Modal */}
+      <Modal
+        visible={showEmptyPlaylistModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowEmptyPlaylistModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.confirmModalContent, { backgroundColor: colors.background }]}>
+            <View style={styles.confirmModalHeader}>
+              <Ionicons name="musical-notes-outline" size={48} color={colors.icon} />
+              <Text style={[styles.confirmModalTitle, { color: colors.text }]}>Empty Playlist</Text>
+              <Text style={[styles.confirmModalMessage, { color: colors.icon }]}>
+                Add some songs first
+              </Text>
+            </View>
+            <View style={styles.confirmModalButtons}>
+              <TouchableOpacity
+                style={[styles.confirmButton, styles.okConfirmButton, { backgroundColor: themeColors.primary }]}
+                onPress={() => setShowEmptyPlaylistModal(false)}
+              >
+                <Text style={styles.buttonText}>OK</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -454,5 +517,52 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  confirmModalContent: {
+    margin: 20,
+    borderRadius: 12,
+    padding: 24,
+    alignItems: 'center',
+  },
+  confirmModalHeader: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  confirmModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  confirmModalMessage: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  confirmModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 24,
+  },
+  confirmButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelConfirmButton: {
+    backgroundColor: '#666',
+  },
+  removeConfirmButton: {
+    backgroundColor: '#ba181b',
+  },
+  okConfirmButton: {
+    // backgroundColor will be set dynamically
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

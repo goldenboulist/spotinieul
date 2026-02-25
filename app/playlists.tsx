@@ -5,15 +5,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    Alert,
-    FlatList,
-    Image,
-    Modal,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  FlatList,
+  Image,
+  Modal,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 export default function PlaylistsScreen() {
@@ -25,10 +24,19 @@ export default function PlaylistsScreen() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [newPlaylistDesc, setNewPlaylistDesc] = useState('');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [playlistToDelete, setPlaylistToDelete] = useState<Playlist | null>(null);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const showError = (message: string) => {
+    setErrorMessage(message);
+    setShowErrorModal(true);
+  };
 
   const handleCreatePlaylist = async () => {
     if (!newPlaylistName.trim()) {
-      Alert.alert('Error', 'Please enter a playlist name');
+      showError('Please enter a playlist name');
       return;
     }
 
@@ -39,23 +47,26 @@ export default function PlaylistsScreen() {
   };
 
   const handleDeletePlaylist = (playlist: Playlist) => {
-    Alert.alert(
-      'Delete Playlist',
-      `Are you sure you want to delete "${playlist.name}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => deletePlaylist(playlist.id),
-        },
-      ]
-    );
+    setPlaylistToDelete(playlist);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeletePlaylist = () => {
+    if (playlistToDelete) {
+      deletePlaylist(playlistToDelete.id);
+      setPlaylistToDelete(null);
+      setShowDeleteModal(false);
+    }
+  };
+
+  const cancelDeletePlaylist = () => {
+    setPlaylistToDelete(null);
+    setShowDeleteModal(false);
   };
 
   const handlePlayPlaylist = (playlist: Playlist) => {
     if (playlist.songs.length === 0) {
-      Alert.alert('Empty Playlist', 'Add some songs to this playlist first');
+      showError('Add some songs to this playlist first');
       return;
     }
     playPlaylist(playlist);
@@ -117,7 +128,7 @@ export default function PlaylistsScreen() {
           }}
           style={styles.deleteButton}
         >
-          <Ionicons name="trash" size={22} color="#E74C3C" />
+          <Ionicons name="remove-circle" size={28} color="#ff0004ff" />
         </TouchableOpacity>
       </View>
     );
@@ -204,6 +215,73 @@ export default function PlaylistsScreen() {
                 onPress={handleCreatePlaylist}
               >
                 <Text style={styles.buttonText}>Create</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Error Modal */}
+      <Modal
+        visible={showErrorModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowErrorModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.errorModalContent, { backgroundColor: colors.background }]}>
+            <View style={styles.errorModalIcon}>
+              <Ionicons name="alert-circle" size={48} color="#ba181b" />
+            </View>
+            <Text style={[styles.errorModalTitle, { color: colors.text }]}>
+              Error
+            </Text>
+            <Text style={[styles.errorModalMessage, { color: colors.icon }]}>
+              {errorMessage}
+            </Text>
+            
+            <TouchableOpacity
+              style={[styles.errorModalButton, { backgroundColor: themeColors.primary }]}
+              onPress={() => setShowErrorModal(false)}
+            >
+              <Text style={styles.errorModalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={showDeleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={cancelDeletePlaylist}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.deleteModalContent, { backgroundColor: colors.background }]}>
+            <View style={styles.deleteModalIcon}>
+              <Ionicons name="remove-circle" size={48} color="#ff0004ff" />
+            </View>
+            <Text style={[styles.deleteModalTitle, { color: colors.text }]}>
+              Delete Playlist
+            </Text>
+            <Text style={[styles.deleteModalMessage, { color: colors.icon }]}>
+              Are you sure you want to delete "{playlistToDelete?.name}"? This action cannot be undone.
+            </Text>
+            
+            <View style={styles.deleteModalButtons}>
+              <TouchableOpacity
+                style={[styles.deleteModalButton, styles.cancelDeleteButton]}
+                onPress={cancelDeletePlaylist}
+              >
+                <Text style={styles.cancelDeleteButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.deleteModalButton, styles.confirmDeleteButton]}
+                onPress={confirmDeletePlaylist}
+              >
+                <Text style={styles.confirmDeleteButtonText}>Delete</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -355,6 +433,86 @@ const styles = StyleSheet.create({
     // backgroundColor will be set dynamically
   },
   buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  errorModalContent: {
+    width: '85%',
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+  },
+  errorModalIcon: {
+    marginBottom: 16,
+  },
+  errorModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  errorModalMessage: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  errorModalButton: {
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    minWidth: 120,
+  },
+  errorModalButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  deleteModalContent: {
+    width: '85%',
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+  },
+  deleteModalIcon: {
+    marginBottom: 16,
+  },
+  deleteModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  deleteModalMessage: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  deleteModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  deleteModalButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelDeleteButton: {
+    backgroundColor: '#666',
+  },
+  confirmDeleteButton: {
+    backgroundColor: '#ba181b',
+  },
+  cancelDeleteButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  confirmDeleteButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',

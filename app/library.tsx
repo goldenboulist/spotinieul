@@ -6,15 +6,14 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import React, { useState } from 'react';
 import {
-    Alert,
-    FlatList,
-    Image,
-    Modal,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  FlatList,
+  Image,
+  Modal,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 export default function LibraryScreen() {
@@ -30,6 +29,10 @@ export default function LibraryScreen() {
     artist: '',
     album: '',
   });
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [songToDelete, setSongToDelete] = useState<Song | null>(null);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const pickAudioFile = async () => {
     try {
@@ -54,13 +57,13 @@ export default function LibraryScreen() {
       setShowMetadataModal(true);
     } catch (error) {
       console.error('Error picking file:', error);
-      Alert.alert('Error', 'Failed to pick audio file');
+      showError('Failed to pick audio file');
     }
   };
 
   const saveAudioFile = async () => {
     if (!tempFileUri || !metadata.title) {
-      Alert.alert('Error', 'Please provide at least a title');
+      showError('Please provide at least a title');
       return;
     }
 
@@ -97,40 +100,46 @@ export default function LibraryScreen() {
       setMetadata({ title: '', artist: '', album: '' });
     } catch (error) {
       console.error('Error saving file:', error);
-      Alert.alert('Error', 'Failed to save audio file');
+      showError('Failed to save audio file');
     } finally {
       setIsUploading(false);
     }
   };
 
-  const handleDeleteSong = (song: Song) => {
-    Alert.alert(
-      'Delete Song',
-      `Are you sure you want to delete "${song.title}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // Delete the file
-              await FileSystem.deleteAsync(song.uri, { idempotent: true });
-              await deleteSong(song.id);
-            } catch (error) {
-              console.error('Error deleting song:', error);
-              Alert.alert('Error', 'Failed to delete song');
-            }
-          },
-        },
-      ]
-    );
-  };
-
+  
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const showError = (message: string) => {
+    setErrorMessage(message);
+    setShowErrorModal(true);
+  };
+
+  const handleDeleteSong = (song: Song) => {
+    setSongToDelete(song);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteSong = async () => {
+    if (songToDelete) {
+      try {
+        await FileSystem.deleteAsync(songToDelete.uri, { idempotent: true });
+        await deleteSong(songToDelete.id);
+        setSongToDelete(null);
+        setShowDeleteModal(false);
+      } catch (error) {
+        console.error('Error deleting song:', error);
+        showError('Failed to delete song');
+      }
+    }
+  };
+
+  const cancelDeleteSong = () => {
+    setSongToDelete(null);
+    setShowDeleteModal(false);
   };
 
   const renderSongItem = ({ item }: { item: Song }) => (
@@ -173,7 +182,7 @@ export default function LibraryScreen() {
         }}
         style={styles.deleteButton}
       >
-        <Ionicons name="trash" size={22} color="#E74C3C" />
+        <Ionicons name="remove-circle" size={28} color="#ff0004ff" />
       </TouchableOpacity>
     </View>
   );
@@ -265,6 +274,73 @@ export default function LibraryScreen() {
                 <Text style={styles.buttonText}>
                   {isUploading ? 'Saving...' : 'Save'}
                 </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Error Modal */}
+      <Modal
+        visible={showErrorModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowErrorModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.errorModalContent, { backgroundColor: colors.background }]}>
+            <View style={styles.errorModalIcon}>
+              <Ionicons name="alert-circle" size={48} color="#ba181b" />
+            </View>
+            <Text style={[styles.errorModalTitle, { color: colors.text }]}>
+              Error
+            </Text>
+            <Text style={[styles.errorModalMessage, { color: colors.icon }]}>
+              {errorMessage}
+            </Text>
+            
+            <TouchableOpacity
+              style={[styles.errorModalButton, { backgroundColor: themeColors.primary }]}
+              onPress={() => setShowErrorModal(false)}
+            >
+              <Text style={styles.errorModalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={showDeleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={cancelDeleteSong}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.deleteModalContent, { backgroundColor: colors.background }]}>
+            <View style={styles.deleteModalIcon}>
+              <Ionicons name="remove-circle" size={48} color="#ff0004ff" />
+            </View>
+            <Text style={[styles.deleteModalTitle, { color: colors.text }]}>
+              Delete Song
+            </Text>
+            <Text style={[styles.deleteModalMessage, { color: colors.icon }]}>
+              Are you sure you want to delete "{songToDelete?.title}"? This action cannot be undone.
+            </Text>
+            
+            <View style={styles.deleteModalButtons}>
+              <TouchableOpacity
+                style={[styles.deleteModalButton, styles.cancelDeleteButton]}
+                onPress={cancelDeleteSong}
+              >
+                <Text style={styles.cancelDeleteButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.deleteModalButton, styles.confirmDeleteButton]}
+                onPress={confirmDeleteSong}
+              >
+                <Text style={styles.confirmDeleteButtonText}>Delete</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -406,6 +482,86 @@ const styles = StyleSheet.create({
     // backgroundColor will be set dynamically
   },
   buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  errorModalContent: {
+    width: '85%',
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+  },
+  errorModalIcon: {
+    marginBottom: 16,
+  },
+  errorModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  errorModalMessage: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  errorModalButton: {
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    minWidth: 120,
+  },
+  errorModalButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  deleteModalContent: {
+    width: '85%',
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+  },
+  deleteModalIcon: {
+    marginBottom: 16,
+  },
+  deleteModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  deleteModalMessage: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  deleteModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  deleteModalButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelDeleteButton: {
+    backgroundColor: '#666',
+  },
+  confirmDeleteButton: {
+    backgroundColor: '#ba181b',
+  },
+  cancelDeleteButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  confirmDeleteButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
